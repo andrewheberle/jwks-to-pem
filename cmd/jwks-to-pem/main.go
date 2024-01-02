@@ -45,9 +45,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	// write keys based on
-	if err := j.WriteKeys(viper.GetString("pattern"), viper.GetString("dir")); err != nil {
+	// write keys based on pattern
+	changed, err := j.WriteKeys(viper.GetString("pattern"), viper.GetString("dir"))
+	if err != nil {
 		slog.Error("problem processing keys", "error", err)
 		os.Exit(1)
+	}
+
+	// check if any changes were written
+	if !changed {
+		slog.Info("no changes to keys")
+		os.Exit(0)
 	}
 }

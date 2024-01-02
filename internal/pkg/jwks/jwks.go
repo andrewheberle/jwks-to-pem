@@ -10,6 +10,7 @@ import (
 	"errors"
 	"html/template"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -100,13 +101,14 @@ func GetJWKS(url string, timeout time.Duration) (*JWKS, error) {
 	return keyset, nil
 }
 
-func (j *JWKS) WriteKeys(pattern, output string) error {
+func (j *JWKS) WriteKeys(pattern, output string) (bool, error) {
 	var err error
+	var keyChanged bool
 
 	// set up template
 	t, err := template.New("pattern").Parse(pattern)
 	if err != nil {
-		return &WriteError{Message: "pattern could not be parsed", Err: err}
+		return keyChanged, &WriteError{Message: "pattern could not be parsed", Err: err}
 	}
 
 	// keep track of errors
@@ -146,14 +148,11 @@ func (j *JWKS) WriteKeys(pattern, output string) error {
 		outFile := filepath.Join(output, name.String())
 
 		// check if any changes have occurred
-		changed, err := jwk.Changed(outFile)
-		if err != nil {
+		if changed, err := jwk.Changed(outFile); err != nil {
 			errs = append(errs, &WriteError{Message: "error comparing keys", KeyID: keyID, Err: err})
+			slog.Debug("error comparing keys", "error", err)
 			continue
-		}
-
-		// skip if no changes
-		if !changed {
+		} else if !changed {
 			continue
 		}
 
@@ -162,10 +161,13 @@ func (j *JWKS) WriteKeys(pattern, output string) error {
 			errs = append(errs, &WriteError{Message: "writing key failed", KeyID: keyID, Err: err})
 			continue
 		}
+
+		// on successful write set keyChanged to "true"
+		keyChanged = true
 	}
 
 	// return any errors
-	return errors.Join(errs...)
+	return keyChanged, errors.Join(errs...)
 }
 
 func (k *JWK) ALG() string {
@@ -216,8 +218,8 @@ func (jwk *JWK) Bytes() ([]byte, error) {
 }
 
 func (jwk *JWK) Changed(current string) (bool, error) {
-	// get key as byte slice
-	data, err := jwk.Bytes()
+	// get key as PEM encoded byte slice
+	data, err := jwk.PEM()
 	if err != nil {
 		return false, err
 	}
@@ -237,6 +239,10 @@ func keychanged(current string, data []byte) (bool, error) {
 		}
 	}
 	a, b := hasher.Sum(data), currenthash
+
+	bdata, _ := os.ReadFile(current)
+
+	slog.Debug("comparison results", "a-hash", a, "b-hash", b, "a-data", data, "b-data", bdata)
 
 	// compare hashes and return result
 	return !bytes.Equal(a[:], b[:]), nil
