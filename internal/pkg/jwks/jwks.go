@@ -19,6 +19,7 @@ import (
 	"github.com/kalafut/imohash"
 )
 
+// JWKS represents a JSON Web Key Set
 type JWKS struct {
 	keyset []JWK
 }
@@ -76,6 +77,7 @@ func (e *WriteError) Error() string {
 
 func (e *WriteError) Unwrap() error { return e.Err }
 
+// GetJWKS fetches a JSON Web Key Set from the provided URL
 func GetJWKS(url string, timeout time.Duration) (*JWKS, error) {
 	// set up http client to grab jwks
 	j, err := jwkset.NewDefaultHTTPClient([]string{url})
@@ -217,6 +219,7 @@ func (jwk *JWK) Bytes() ([]byte, error) {
 	return data, err
 }
 
+// Checks if the JWK has changed compared to the "current" copy
 func (jwk *JWK) Changed(current string) (bool, error) {
 	// get key as PEM encoded byte slice
 	data, err := jwk.PEM()
@@ -226,6 +229,43 @@ func (jwk *JWK) Changed(current string) (bool, error) {
 
 	// compare hashes and return result
 	return keychanged(current, data)
+}
+
+// Writes the JWK as a PEM encoded file to "name"
+func (jwk *JWK) Write(name string) error {
+	// grab as PEM encoded byte slice
+	data, err := jwk.PEM()
+	if err != nil {
+		return err
+	}
+
+	// create temp file
+	f, err := os.CreateTemp(filepath.Dir(name), "key*")
+	if err != nil {
+		return err
+	}
+
+	// save temp file name
+	tempName := f.Name()
+
+	// close temp file and remove once done
+	defer func() {
+		f.Close()
+		os.Remove(tempName)
+	}()
+
+	// write data to temp file
+	if _, err := f.Write(data); err != nil {
+		return err
+	}
+
+	// close temp file
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	// move into place
+	return os.Rename(tempName, name)
 }
 
 func keychanged(current string, data []byte) (bool, error) {
@@ -267,40 +307,4 @@ func (jwk *JWK) PEM() ([]byte, error) {
 	// return data as []byte
 	return buf.Bytes(), nil
 
-}
-
-func (jwk *JWK) Write(name string) error {
-	// grab as PEM encoded byte slice
-	data, err := jwk.PEM()
-	if err != nil {
-		return err
-	}
-
-	// create temp file
-	f, err := os.CreateTemp(filepath.Dir(name), "key*")
-	if err != nil {
-		return err
-	}
-
-	// save temp file name
-	tempName := f.Name()
-
-	// close temp file and remove once done
-	defer func() {
-		f.Close()
-		os.Remove(tempName)
-	}()
-
-	// write data to temp file
-	if _, err := f.Write(data); err != nil {
-		return err
-	}
-
-	// close temp file
-	if err := f.Close(); err != nil {
-		return err
-	}
-
-	// move into place
-	return os.Rename(tempName, name)
 }
