@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/MicahParks/jwkset"
@@ -21,12 +22,13 @@ import (
 
 // JWKS represents a JSON Web Key Set
 type JWKS struct {
-	keyset []JWK
+	keyset []*JWK
 }
 
 type JWK struct {
 	key  jwkset.JWK
 	data []byte
+	mu   sync.Mutex
 }
 
 var (
@@ -97,7 +99,7 @@ func GetJWKS(url string, timeout time.Duration) (*JWKS, error) {
 
 	keyset := new(JWKS)
 	for _, key := range keys {
-		keyset.keyset = append(keyset.keyset, JWK{key: key})
+		keyset.keyset = append(keyset.keyset, &JWK{key: key})
 	}
 
 	return keyset, nil
@@ -181,6 +183,10 @@ func (k *JWK) KID() string {
 }
 
 func (jwk *JWK) Bytes() ([]byte, error) {
+	// take an exclusive lock at this time in case we alter things
+	jwk.mu.Lock()
+	defer jwk.mu.Unlock()
+
 	// check if this is already done
 	if jwk.data != nil {
 		return jwk.data, nil
