@@ -6,7 +6,7 @@ If changes are detected in the keys then a reload of another service can be trig
 
 ## Motivation
 
-This was written to allow HAProxy to verify a JWT when the keys are published via a JWKS, so the HAProxy config could be defined using a config similar to the following:
+This was written to allow HAProxy to verify a JWT when the keys are published via a JWKS, so HAProxy could be defined configured similar to the following:
 
 ```haproxy
 http-request set-var(txn.bearer) http_auth_bearer
@@ -20,7 +20,7 @@ http-request deny unless jwt_alg_allowed
 http-request deny if !jwt_k1_ok !jwt_k2_ok
 ```
 
-In this case `jwks-to-pem` is run periodically as follows:
+In this case `jwks-to-pem` can be run periodically as follows:
 
 ```sh
 ./jwks-to-pem --url "https://example.com/path/to/jwks.json" \
