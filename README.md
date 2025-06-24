@@ -97,10 +97,13 @@ docker run --rm --pid container:haproxy \
     -e JWKS_PATTERN="k{{ .Index }}.pem" \
     -e JWKS_RELOAD_PID="1" \
     -e JWKS_RELOAD_SIGNAL="SIGUSR2" \
+    --user 99 \
     ghcr.io/andrewheberle/jwks-to-pem
 ```
 
-For services that allow reloads via a HTTP POST such as Prometheus, an example may be:
+The `--user 99` value above is to match the UID of the `haproxy` user in the `haproxy:lts` image so the reload works. 
+
+For services that allow reloads via a HTTP POST/GET, issues around permissions and PID namespaces are not a consideration, so an example may be:
 
 ```sh
 docker run --rm \
@@ -108,6 +111,6 @@ docker run --rm \
     -e JWKS_OUT="/keys" \
     -e JWKS_URL="https://example.com/path/to/jwks.json" \
     -e JWKS_PATTERN="k{{ .Index }}.pem" \
-    -e JWKS_RELOAD_URL="http://prometheus:9090/-/reload" \
+    -e JWKS_RELOAD_URL="http://otherservice:9090/-/reload" \
     ghcr.io/andrewheberle/jwks-to-pem
 ```
