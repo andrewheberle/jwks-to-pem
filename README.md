@@ -48,3 +48,66 @@ If changes to the keys are made, HAProxy is then reloaded to pick up the changes
 | -u, --url        | URL of JWKS                         | No default (required)              |
 
 The options `--reload.pid` and `--reload.pidfile` are mutually exclusive, along with `--reload.url` and `--reload.pid`/`--reload.pidfile`.
+
+All of the above options may be provided as environment variables prefixed by `JWKS_`, for example setting the following enviroment variables is equivalent to the command line used above:
+
+```sh
+JWKS_URL="https://example.com/path/to/jwks.json"
+JWKS_RELOAD_PIDFILE="/path/to/haproxy.pid"
+JWKS_RELOAD_SIGNAL="SIGUSR2"
+JWKS_PATTERN="k{{ .Index }}.pem"
+JWKS_OUT="/path/to/keys"
+```
+
+## Reloads
+
+If one of the `--reload.pid`,  `--reload.pidfile` or `--reload.url` options are provided a reload will be triggered when changed to the downloaded keys are detected.
+
+In then case of `--reload.pid` or `--reload.pidfile` the signal defined by `--reload.signal` will be sent.
+
+If `--reload.url` was provided a HTTP request using the method set by `--reload.method` is performed.
+
+## Docker
+
+A docker container is published and can be used as follows:
+
+```sh
+docker run -v /path/to/keys:/keys ghcr.io/andrewheberle/jwks-to-pem \
+    --url "https://example.com/path/to/jwks.json" \
+    --out "/keys" \
+    --pattern "k{{ .Index }}.pem"
+```
+
+Using PID based reloads will not work when running as a container unless the container you wish to trigger a reload in and this container share the same PID namespace.
+
+Based on the initial example with HAProxy and having both run as containers, this could be achieved as follows:
+
+```sh
+# Start HAproxy
+docker run --name haproxy --detach \
+    -v /path/to/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro \
+    -v /path/to/keys:/keys:ro \
+    haproxy:lts
+
+# Periodically refresh keys
+docker run --rm --pid container:haproxy \
+    -v /path/to/keys:/keys \
+    -e JWKS_OUT="/keys" \
+    -e JWKS_URL="https://example.com/path/to/jwks.json" \
+    -e JWKS_PATTERN="k{{ .Index }}.pem" \
+    -e JWKS_RELOAD_PID="1" \
+    -e JWKS_RELOAD_SIGNAL="SIGUSR2" \
+    ghcr.io/andrewheberle/jwks-to-pem
+```
+
+For services that allow reloads via a HTTP POST such as Prometheus, an example may be:
+
+```sh
+docker run --rm \
+    -v /path/to/keys:/keys \
+    -e JWKS_OUT="/keys" \
+    -e JWKS_URL="https://example.com/path/to/jwks.json" \
+    -e JWKS_PATTERN="k{{ .Index }}.pem" \
+    -e JWKS_RELOAD_URL="http://prometheus:9090/-/reload" \
+    ghcr.io/andrewheberle/jwks-to-pem
+```

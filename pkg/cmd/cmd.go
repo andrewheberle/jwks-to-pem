@@ -175,7 +175,11 @@ func (c *rootCommand) Run(ctx context.Context, cd *simplecobra.Commandeer, args 
 func Execute(args []string) error {
 	// Set up command
 	command := &rootCommand{
-		Command: simplecommand.New("jwks-to-pem", "Retrieve keys from a JWKS URL and save as PEM encoded files"),
+		Command: simplecommand.New(
+			"jwks-to-pem",
+			"Retrieve keys from a JWKS URL and save as PEM encoded files",
+			simplecommand.WithViper("jwks", strings.NewReplacer("-", "_", ".", "_")),
+		),
 	}
 
 	// Set up simplecobra
