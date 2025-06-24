@@ -8,3 +8,4 @@ jwks-to-pem
 Dockerfile
 README.md
 LICENSE
+renovate.json
