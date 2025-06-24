@@ -32,9 +32,9 @@ func (c *rootCommand) Init(cd *simplecobra.Commandeer) error {
 
 	// command line flags
 	cmd := cd.CobraCommand
-	cmd.Flags().StringVar(&c.jwksUrl, "jwks", "", "URL for JSON Web Key Set (JWKS)")
-	cmd.Flags().StringVar(&c.outputDir, "dir", "", "Output directory")
-	cmd.Flags().StringVar(&c.outputPattern, "pattern", "{{ .KeyID }}.pem", "Output pattern")
+	cmd.Flags().StringVarP(&c.jwksUrl, "url", "u", "", "URL for JSON Web Key Set (JWKS)")
+	cmd.Flags().StringVarP(&c.outputDir, "out", "o", "", "Output directory")
+	cmd.Flags().StringVarP(&c.outputPattern, "pattern", "p", "{{ .KeyID }}.pem", "Output pattern")
 	cmd.Flags().DurationVar(&c.timeout, "timeout", time.Second*5, "Timeout to retrieve JWKS")
 	cmd.Flags().BoolVar(&c.debug, "debug", false, "Enable debug logging")
 

@@ -1,3 +1,5 @@
 *.exe
 *.pem
 !testdata/*.pem
+jwks-to-pem
+!cmd/jwks-to-pem/
