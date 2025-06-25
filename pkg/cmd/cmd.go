@@ -163,11 +163,17 @@ func (c *rootCommand) Run(ctx context.Context, cd *simplecobra.Commandeer, args 
 		return fmt.Errorf("problem fetching JWKS: %w", err)
 	}
 
+	// did we finish
+	c.logger.Debug("GetJWKS finished")
+
 	// write keys based on pattern
 	changed, err := j.WriteKeys(c.outputPattern, c.outputDir)
 	if err != nil {
 		return fmt.Errorf("problem processing keys: %w", err)
 	}
+
+	// did we finish
+	c.logger.Debug("WriteKeys finished")
 
 	// check if any changes were made
 	if !changed {
