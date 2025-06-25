@@ -55,6 +55,8 @@ The options `--reload.pid` and `--reload.pidfile`, `--reload.url` and `--reload.
 
 When specifying `--reload.socket` then `--reload.payload` is required.
 
+For HTTP based reloads `--reload.payload` is optional and sent as-is, however for socket based reloads a newline will be appended to the payload.
+
 All of the above options may be provided as environment variables prefixed by `JWKS_`, for example setting the following enviroment variables is equivalent to the command line used above:
 
 ```sh

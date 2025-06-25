@@ -117,6 +117,7 @@ type UnixSocketReloader struct {
 }
 
 func NewUnixSocketReloader(socket string, payload []byte) (*UnixSocketReloader, error) {
+	payload = append(payload, '\n')
 	return &UnixSocketReloader{socket, payload}, nil
 }
 
