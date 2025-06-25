@@ -154,6 +154,9 @@ func (c *rootCommand) PreRun(this, runner *simplecobra.Commandeer) error {
 }
 
 func (c *rootCommand) Run(ctx context.Context, cd *simplecobra.Commandeer, args []string) error {
+	// some status
+	c.logger.Info("starting fetch process", "url", c.jwksUrl)
+
 	// fetch JWKS
 	j, err := jwks.GetJWKS(c.jwksUrl, c.timeout)
 	if err != nil {
