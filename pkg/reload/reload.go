@@ -11,6 +11,7 @@ import (
 
 type Reloader interface {
 	Reload() error
+	Info() string
 }
 
 type ProcessReloader struct {
@@ -36,6 +37,23 @@ func NewProcessReloader(pid int, signal syscall.Signal) (*ProcessReloader, error
 	return &ProcessReloader{pid, signal}, nil
 }
 
+func (r *ProcessReloader) Info() string {
+	p, err := os.FindProcess(r.pid)
+	if err != nil {
+		return "process not found"
+	}
+
+	if err := p.Signal(syscall.Signal(0)); err != nil {
+		return "process not found"
+	}
+
+	return fmt.Sprint("PID = %d", p.Pid)
+}
+
+func (r *ProcessReloader) Pid() int {
+	return r.pid
+}
+
 func (r *ProcessReloader) Reload() error {
 	p, err := os.FindProcess(r.pid)
 	if err != nil {
@@ -56,6 +74,10 @@ type HTTPReloader struct {
 
 func NewHTTPReloader(url string, method string) (*HTTPReloader, error) {
 	return &HTTPReloader{url, method}, nil
+}
+
+func (r *HTTPReloader) Info() string {
+	return r.url
 }
 
 func (r *HTTPReloader) Reload() error {

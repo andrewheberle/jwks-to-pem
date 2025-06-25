@@ -49,10 +49,13 @@ func (c *cronCommand) PreRun(this, runner *simplecobra.Commandeer) error {
 }
 
 func (c *cronCommand) Run(ctx context.Context, cd *simplecobra.Commandeer, args []string) error {
+	// set up scheduler
 	s, err := gocron.NewScheduler()
 	if err != nil {
 		return err
 	}
+
+	// add job to scheduler
 	if _, err := s.NewJob(
 		gocron.CronJob(c.cronPattern, false),
 		gocron.NewTask(cd.Root.Command.Run, ctx, cd, args),
@@ -60,9 +63,11 @@ func (c *cronCommand) Run(ctx context.Context, cd *simplecobra.Commandeer, args 
 		return err
 	}
 
+	// start scheduler
 	s.Start()
 
-	c.logger.Debug("starting cron process", "schedule", c.cronPattern)
+	// let them know we started
+	c.logger.Info("starting cron process", "schedule", c.cronPattern)
 
 	// wait until we are done
 	<-ctx.Done()

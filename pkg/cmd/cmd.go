@@ -97,19 +97,27 @@ func (c *rootCommand) PreRun(this, runner *simplecobra.Commandeer) error {
 
 	// set up reloader
 	if c.reloadPid != 0 {
-		var err error
-
-		c.reloader, err = reload.NewProcessReloader(c.reloadPid, c.reloadSignal.v)
+		reloader, err := reload.NewProcessReloader(c.reloadPid, c.reloadSignal.v)
 		if err != nil {
 			return err
 		}
+
+		if reloader.Pid() == os.Getpid() {
+			c.logger.Warn("the pid selected for reload seems to be ours", "pid", reloader.Pid())
+		}
+
+		c.reloader = reloader
 	} else if c.reloadPidfile != "" {
-		var err error
-
-		c.reloader, err = reload.NewProcessReloaderFromPidfile(c.reloadPidfile, c.reloadSignal.v)
+		reloader, err := reload.NewProcessReloaderFromPidfile(c.reloadPidfile, c.reloadSignal.v)
 		if err != nil {
 			return err
 		}
+
+		if reloader.Pid() == os.Getpid() {
+			c.logger.Warn("the pid selected for reload seems to be ours", "pid", reloader.Pid())
+		}
+
+		c.reloader = reloader
 	} else if c.reloadUrl != "" {
 		var err error
 
@@ -123,9 +131,6 @@ func (c *rootCommand) PreRun(this, runner *simplecobra.Commandeer) error {
 }
 
 func (c *rootCommand) Run(ctx context.Context, cd *simplecobra.Commandeer, args []string) error {
-	// some debug logging to say we ran
-	c.logger.Debug("running process")
-
 	// fetch JWKS
 	j, err := jwks.GetJWKS(c.jwksUrl, c.timeout)
 	if err != nil {
