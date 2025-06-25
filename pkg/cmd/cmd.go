@@ -181,6 +181,9 @@ func (c *rootCommand) Run(ctx context.Context, cd *simplecobra.Commandeer, args 
 		return nil
 	}
 
+	// more status
+	c.logger.Info("changes to keys detected and reloader is configured")
+
 	// do reload
 	if err := c.reloader.Reload(); err != nil {
 		c.logger.Error("reload of process failed", "error", err)
