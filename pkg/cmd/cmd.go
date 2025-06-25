@@ -7,12 +7,12 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/andrewheberle/jwks-to-pem/pkg/jwks"
+	"github.com/andrewheberle/jwks-to-pem/pkg/reload"
 	"github.com/andrewheberle/simplecommand"
 	"github.com/bep/simplecobra"
 )
@@ -30,6 +30,8 @@ type rootCommand struct {
 	reloadSignal  signal
 
 	logger *slog.Logger
+
+	reloader reload.Reloader
 
 	*simplecommand.Command
 }
@@ -52,19 +54,19 @@ func (c *rootCommand) Init(cd *simplecobra.Commandeer) error {
 
 	// command line flags
 	cmd := cd.CobraCommand
-	cmd.Flags().StringVarP(&c.jwksUrl, "url", "u", "", "URL for JSON Web Key Set (JWKS)")
-	cmd.Flags().StringVarP(&c.outputDir, "out", "o", "", "Output directory")
-	cmd.Flags().StringVarP(&c.outputPattern, "pattern", "p", "{{ .KeyID }}.pem", "Output pattern")
-	cmd.Flags().DurationVar(&c.timeout, "timeout", time.Second*5, "Timeout to retrieve JWKS")
-	cmd.Flags().StringVar(&c.reloadUrl, "reload.url", "", "URL to use for reloads")
-	cmd.Flags().IntVar(&c.reloadPid, "reload.pid", 0, "Process ID to signal for reloads")
-	cmd.Flags().StringVar(&c.reloadPidfile, "reload.pidfile", "", "File to look up process ID to signal for reloads")
-	cmd.Flags().Var(&c.reloadSignal, "reload.signal", "Process ID to signal for reloads")
-	cmd.Flags().StringVar(&c.reloadMethod, "reload.method", http.MethodPost, "Method to use for reload URL")
-	cmd.Flags().BoolVar(&c.debug, "debug", false, "Enable debug logging")
+	cmd.PersistentFlags().StringVarP(&c.jwksUrl, "url", "u", "", "URL for JSON Web Key Set (JWKS)")
+	cmd.PersistentFlags().StringVarP(&c.outputDir, "out", "o", "", "Output directory")
+	cmd.PersistentFlags().StringVarP(&c.outputPattern, "pattern", "p", "{{ .KeyID }}.pem", "Output pattern")
+	cmd.PersistentFlags().DurationVar(&c.timeout, "timeout", time.Second*5, "Timeout to retrieve JWKS")
+	cmd.PersistentFlags().StringVar(&c.reloadUrl, "reload.url", "", "URL to use for reloads")
+	cmd.PersistentFlags().IntVar(&c.reloadPid, "reload.pid", 0, "Process ID to signal for reloads")
+	cmd.PersistentFlags().StringVar(&c.reloadPidfile, "reload.pidfile", "", "File to look up process ID to signal for reloads")
+	cmd.PersistentFlags().Var(&c.reloadSignal, "reload.signal", "Process ID to signal for reloads")
+	cmd.PersistentFlags().StringVar(&c.reloadMethod, "reload.method", http.MethodPost, "Method to use for reload URL")
+	cmd.PersistentFlags().BoolVar(&c.debug, "debug", false, "Enable debug logging")
 
 	// require a url
-	cmd.MarkFlagRequired("url")
+	cmd.MarkPersistentFlagRequired("url")
 
 	// dont allow both pid and pidfile togther
 	cmd.MarkFlagsMutuallyExclusive("reload.pid", "reload.pidfile")
@@ -93,10 +95,37 @@ func (c *rootCommand) PreRun(this, runner *simplecobra.Commandeer) error {
 		return fmt.Errorf("problem parsing pattern: %w", err)
 	}
 
+	// set up reloader
+	if c.reloadPid != 0 {
+		var err error
+
+		c.reloader, err = reload.NewProcessReloader(c.reloadPid, c.reloadSignal.v)
+		if err != nil {
+			return err
+		}
+	} else if c.reloadPidfile != "" {
+		var err error
+
+		c.reloader, err = reload.NewProcessReloaderFromPidfile(c.reloadPidfile, c.reloadSignal.v)
+		if err != nil {
+			return err
+		}
+	} else if c.reloadUrl != "" {
+		var err error
+
+		c.reloader, err = reload.NewHTTPReloader(c.reloadUrl, c.reloadMethod)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (c *rootCommand) Run(ctx context.Context, cd *simplecobra.Commandeer, args []string) error {
+	// some debug logging to say we ran
+	c.logger.Debug("running process")
+
 	// fetch JWKS
 	j, err := jwks.GetJWKS(c.jwksUrl, c.timeout)
 	if err != nil {
@@ -117,64 +146,25 @@ func (c *rootCommand) Run(ctx context.Context, cd *simplecobra.Commandeer, args 
 	}
 
 	// no reload set up?
-	if c.reloadPid == 0 && c.reloadPidfile == "" && c.reloadUrl == "" {
+	if c.reloader == nil {
 		return nil
 	}
 
-	// did we get a pidfile?
-	if c.reloadPidfile != "" {
-		b, err := os.ReadFile(c.reloadPidfile)
-		if err != nil {
-			return fmt.Errorf("could not open pid file: %w", err)
-		}
+	// do reload
+	if err := c.reloader.Reload(); err != nil {
+		c.logger.Error("reload of process failed", "error", err)
 
-		c.reloadPid, err = strconv.Atoi(strings.TrimSpace(string(b)))
-		if err != nil {
-			return fmt.Errorf("invalid pid from pidfile: %w", err)
-		}
+		return err
 	}
 
-	// pid based reload
-	if c.reloadPid != 0 {
-		p, err := os.FindProcess(c.reloadPid)
-		if err != nil {
-			return fmt.Errorf("could not find process: %w", err)
-		}
-
-		if err := p.Signal(c.reloadSignal.v); err != nil {
-			return fmt.Errorf("reload error: %w", err)
-		}
-
-		c.logger.Info("reload of process completed", "pid", c.reloadPid, "signal", c.reloadSignal.String())
-
-		return nil
-	}
-
-	// url/webhook based reload
-	req, err := http.NewRequest(c.reloadMethod, c.reloadUrl, nil)
-	if err != nil {
-		return fmt.Errorf("could not build request: %w", err)
-	}
-
-	// do request
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("error during request: %w", err)
-	}
-
-	// check response
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad response code: %d", res.StatusCode)
-	}
-
-	c.logger.Info("reload of process completed", "url", c.reloadUrl, "method", c.reloadMethod)
+	c.logger.Info("reload of process completed")
 
 	return nil
 }
 
 func Execute(args []string) error {
 	// Set up command
-	command := &rootCommand{
+	root := &rootCommand{
 		Command: simplecommand.New(
 			"jwks-to-pem",
 			"Retrieve keys from a JWKS URL and save as PEM encoded files",
@@ -182,8 +172,19 @@ func Execute(args []string) error {
 		),
 	}
 
+	// add child commands
+	root.SubCommands = []simplecobra.Commander{
+		&cronCommand{
+			Command: simplecommand.New(
+				"cron",
+				"Run with a scheduled process",
+				simplecommand.WithViper("jwks_cron", strings.NewReplacer("-", "_", ".", "_")),
+			),
+		},
+	}
+
 	// Set up simplecobra
-	x, err := simplecobra.New(command)
+	x, err := simplecobra.New(root)
 	if err != nil {
 		return err
 	}

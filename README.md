@@ -6,7 +6,7 @@ If changes are detected in the keys then a reload of another service can be trig
 
 ## Motivation
 
-This was written to allow HAProxy to verify a JWT when the keys are published via a JWKS, so HAProxy could be defined configured similar to the following:
+This was written to allow HAProxy to verify a JWT when the keys are published via a JWKS, so HAProxy could be configured similar to the following:
 
 ```haproxy
 http-request set-var(txn.bearer) http_auth_bearer
@@ -31,6 +31,8 @@ In this case `jwks-to-pem` can be run periodically as follows:
 ```
 
 If changes to the keys are made, HAProxy is then reloaded to pick up the changes.
+
+The command also supports a "cron" option (see below) to run on a schedule.
 
 ## Command Line Options
 
@@ -58,6 +60,17 @@ JWKS_RELOAD_SIGNAL="SIGUSR2"
 JWKS_PATTERN="k{{ .Index }}.pem"
 JWKS_OUT="/path/to/keys"
 ```
+
+### Cron Mode
+
+The "cron" sub-command may be used to have the process run as a daemon that triggers checks based on the provided `--schedule` which is schedule in crontab syntax as per the example below:
+
+```sh
+# run weekly at 1:15am
+jwks-to-pem <other options> cron --schedule "15 1 * * 0"
+```
+
+The crontab schedule may be provided via the `JWKS_CRON_SCHEDULE` environment variable.
 
 ## Reloads
 
