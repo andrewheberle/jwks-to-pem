@@ -1,7 +1,9 @@
 package reload
 
 import (
+	"bytes"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -68,12 +70,13 @@ func (r *ProcessReloader) Reload() error {
 }
 
 type HTTPReloader struct {
-	url    string
-	method string
+	url     string
+	method  string
+	payload []byte
 }
 
-func NewHTTPReloader(url string, method string) (*HTTPReloader, error) {
-	return &HTTPReloader{url, method}, nil
+func NewHTTPReloader(url string, method string, payload []byte) (*HTTPReloader, error) {
+	return &HTTPReloader{url, method, payload}, nil
 }
 
 func (r *HTTPReloader) Info() string {
@@ -81,7 +84,15 @@ func (r *HTTPReloader) Info() string {
 }
 
 func (r *HTTPReloader) Reload() error {
-	req, err := http.NewRequest(r.method, r.url, nil)
+	var buf bytes.Buffer
+
+	if r.payload != nil {
+		// use payload as buf
+		buf = *bytes.NewBuffer(r.payload)
+	}
+
+	// set up request
+	req, err := http.NewRequest(r.method, r.url, &buf)
 	if err != nil {
 		return fmt.Errorf("could not build request: %w", err)
 	}
@@ -95,6 +106,35 @@ func (r *HTTPReloader) Reload() error {
 	// check response
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad response code: %d", res.StatusCode)
+	}
+
+	return nil
+}
+
+type UnixSocketReloader struct {
+	socket  string
+	payload []byte
+}
+
+func NewUnixSocketReloader(socket string, payload []byte) (*UnixSocketReloader, error) {
+	return &UnixSocketReloader{socket, payload}, nil
+}
+
+func (r *UnixSocketReloader) Info() string {
+	return r.socket
+}
+
+func (r *UnixSocketReloader) Reload() error {
+	// connect to socket
+	conn, err := net.Dial("unix", r.socket)
+	if err != nil {
+		return fmt.Errorf("could not connect: %w", err)
+	}
+	defer conn.Close()
+
+	// send payload
+	if _, err := conn.Write(r.payload); err != nil {
+		return fmt.Errorf("error writing: %w", err)
 	}
 
 	return nil

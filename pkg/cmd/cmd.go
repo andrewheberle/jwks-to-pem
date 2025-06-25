@@ -24,10 +24,12 @@ type rootCommand struct {
 	timeout       time.Duration
 	debug         bool
 	reloadUrl     string
+	reloadPayload string
 	reloadMethod  string
 	reloadPid     int
 	reloadPidfile string
 	reloadSignal  signal
+	reloadSocket  string
 
 	logger *slog.Logger
 
@@ -58,7 +60,9 @@ func (c *rootCommand) Init(cd *simplecobra.Commandeer) error {
 	cmd.PersistentFlags().StringVarP(&c.outputDir, "out", "o", "", "Output directory")
 	cmd.PersistentFlags().StringVarP(&c.outputPattern, "pattern", "p", "{{ .KeyID }}.pem", "Output pattern")
 	cmd.PersistentFlags().DurationVar(&c.timeout, "timeout", time.Second*5, "Timeout to retrieve JWKS")
+	cmd.PersistentFlags().StringVar(&c.reloadSocket, "reload.socket", "", "Socket to use for reloads")
 	cmd.PersistentFlags().StringVar(&c.reloadUrl, "reload.url", "", "URL to use for reloads")
+	cmd.PersistentFlags().StringVar(&c.reloadPayload, "reload.payload", "", "Payload for URL/socket based reloads")
 	cmd.PersistentFlags().IntVar(&c.reloadPid, "reload.pid", 0, "Process ID to signal for reloads")
 	cmd.PersistentFlags().StringVar(&c.reloadPidfile, "reload.pidfile", "", "File to look up process ID to signal for reloads")
 	cmd.PersistentFlags().Var(&c.reloadSignal, "reload.signal", "Process ID to signal for reloads")
@@ -68,12 +72,15 @@ func (c *rootCommand) Init(cd *simplecobra.Commandeer) error {
 	// require a url
 	cmd.MarkPersistentFlagRequired("url")
 
-	// dont allow both pid and pidfile togther
-	cmd.MarkFlagsMutuallyExclusive("reload.pid", "reload.pidfile")
+	// dont allow different reload options together
+	cmd.MarkFlagsMutuallyExclusive("reload.url", "reload.pid", "reload.pidfile", "reload.socket")
 
-	// dont allow signal or webhook based reloading togther
-	cmd.MarkFlagsMutuallyExclusive("reload.url", "reload.pid")
-	cmd.MarkFlagsMutuallyExclusive("reload.url", "reload.pidfile")
+	// a payload makes no sense for pid/pidfile based reloads
+	cmd.MarkFlagsMutuallyExclusive("reload.payload", "reload.pid")
+	cmd.MarkFlagsMutuallyExclusive("reload.payload", "reload.pidfile")
+
+	// socket based reloads required a payload
+	cmd.MarkFlagsRequiredTogether("reload.socket", "reload.payload")
 
 	return nil
 }
@@ -119,12 +126,28 @@ func (c *rootCommand) PreRun(this, runner *simplecobra.Commandeer) error {
 
 		c.reloader = reloader
 	} else if c.reloadUrl != "" {
-		var err error
+		var payload []byte
 
-		c.reloader, err = reload.NewHTTPReloader(c.reloadUrl, c.reloadMethod)
+		// use payload if set
+		if c.reloadPayload != "" {
+			payload = []byte(c.reloadPayload)
+		}
+
+		// set up reloader
+		reloader, err := reload.NewHTTPReloader(c.reloadUrl, c.reloadMethod, payload)
 		if err != nil {
 			return err
 		}
+
+		c.reloader = reloader
+	} else if c.reloadSocket != "" {
+		// set up unix socket based reloader
+		reloader, err := reload.NewUnixSocketReloader(c.reloadSocket, []byte(c.reloadPayload))
+		if err != nil {
+			return err
+		}
+
+		c.reloader = reloader
 	}
 
 	return nil

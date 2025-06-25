@@ -36,20 +36,24 @@ The command also supports a "cron" option (see below) to run on a schedule.
 
 ## Command Line Options
 
-| Option           | Description                         | Default/Notes                      |
-|------------------|-------------------------------------|------------------------------------|
-| --debug          | Enable additional logging           | false                              |
-| -o, --out        | Output directory for keys           | No default (prints keys to stdout) |
-| -p, --pattern    | Go template naming pattern for keys | {{ .KeyID }}.pem                   |
-| --reload.method  | HTTP method for reloads             | POST                               |
-| --reload.pid     | PID to signal for reloads           |                                    |
-| --reload.pidfile | File to lookup PID for reloads from |                                    |
-| --reload.signal  | Signal for process based reloads    | SIGHUP                             |
-| --reload.url     | URL for HTTP based reloads          |                                    |
-| --timeout        | Timeout to retreive JWKS            | 5s                                 |
-| -u, --url        | URL of JWKS                         | No default (required)              |
+| Option           | Description                           | Default/Notes                      |
+|------------------|---------------------------------------|------------------------------------|
+| --debug          | Enable additional logging             | false                              |
+| -o, --out        | Output directory for keys             | No default (prints keys to stdout) |
+| -p, --pattern    | Go template naming pattern for keys   | {{ .KeyID }}.pem                   |
+| --reload.method  | HTTP method for reloads               | POST                               |
+| --reload.payload | Payload for HTTP/socket based reloads |                                    |
+| --reload.pid     | PID to signal for reloads             |                                    |
+| --reload.pidfile | File to lookup PID for reloads from   |                                    |
+| --reload.signal  | Signal for process based reloads      | SIGHUP                             |
+| --reload.socket  | Path for socket based reloads         |                                    |
+| --reload.url     | URL for HTTP based reloads            |                                    |
+| --timeout        | Timeout to retreive JWKS              | 5s                                 |
+| -u, --url        | URL of JWKS                           | No default (required)              |
 
-The options `--reload.pid` and `--reload.pidfile` are mutually exclusive, along with `--reload.url` and `--reload.pid`/`--reload.pidfile`.
+The options `--reload.pid` and `--reload.pidfile`, `--reload.url` and `--reload.socket` are all mutually exclusive.
+
+When specifying `--reload.socket` then `--reload.payload` is required.
 
 All of the above options may be provided as environment variables prefixed by `JWKS_`, for example setting the following enviroment variables is equivalent to the command line used above:
 
