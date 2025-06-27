@@ -80,15 +80,17 @@ The crontab schedule may be provided via the `JWKS_CRON_SCHEDULE` environment va
 
 ## Reloads
 
-If one of the `--reload.pid`,  `--reload.pidfile` or `--reload.url` options are provided a reload will be triggered when changed to the downloaded keys are detected.
+If one of the `--reload.pid`,  `--reload.pidfile`, `--reload.unix` or `--reload.url` options are provided a reload will be triggered when changed to the downloaded keys are detected.
 
 In then case of `--reload.pid` or `--reload.pidfile` the signal defined by `--reload.signal` will be sent.
 
 If `--reload.url` was provided a HTTP request using the method set by `--reload.method` is performed.
 
+When `--reload.unix` is set a `--reload.payload` must be provided and may also be optionally provided when using `--reload.url`.
+
 ## Docker
 
-A docker container is published and can be used as follows:
+A container image is published and can be used as follows:
 
 ```sh
 docker run -v /path/to/keys:/keys ghcr.io/andrewheberle/jwks-to-pem \
@@ -120,7 +122,31 @@ docker run --rm --pid container:haproxy \
     ghcr.io/andrewheberle/jwks-to-pem
 ```
 
-The `--user 99` value above is to match the UID of the `haproxy` user in the `haproxy:lts` image so the reload works. 
+The `--user 99` value above is to match the UID of the `haproxy` user in the `haproxy:lts` image so the reload works, however it would be simpler to trigger reloads via the HAProxy master management socket as follows:
+
+```sh
+# Run as above and enable the master socket 
+docker run --name haproxy --detach \
+    -v /path/to/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro \
+    -v /path/to/keys:/keys:ro \
+    -v /path/to/socket:/socket \
+    haproxy:lts \
+    haproxy -f /usr/local/etc/haproxy/haproxy.cfg -S /socket/master.sock
+
+# Periodically refresh keys based on schedule in cron mode
+docker run --name reloader --detach \
+    -v /path/to/keys:/keys \
+    -v /path/to/socket:/socket \
+    -e JWKS_OUT="/keys" \
+    -e JWKS_URL="https://example.com/path/to/jwks.json" \
+    -e JWKS_PATTERN="k{{ .Index }}.pem" \
+    -e JWKS_CRON_SCHEDULE="15 1 * * 0,3" \
+    -e JWKS_RELOAD_SOCKET="/socket/master.sock" \
+    -e JWKS_RELOAD_PAYLOAD="reload" \
+    ghcr.io/andrewheberle/jwks-to-pem cron
+```
+
+The above requires both containers to have write access to the master control socket.
 
 For services that allow reloads via a HTTP POST/GET, issues around permissions and PID namespaces are not a consideration, so an example may be:
 
