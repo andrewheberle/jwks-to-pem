@@ -2,7 +2,7 @@ module github.com/andrewheberle/jwks-to-pem
 
 go 1.24.0
 
-toolchain go1.24.4
+toolchain go1.25.1
 
 require (
 	github.com/MicahParks/jwkset v0.6.0
