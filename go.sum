@@ -1,5 +1,7 @@
 github.com/MicahParks/jwkset v0.6.0 h1:l9BdSMVzhmEFXTTlTPIhK2FuDTFYawMA1hrpxQRajBI=
 github.com/MicahParks/jwkset v0.6.0/go.mod h1:lNJLP4R63A/8lT9GO6FWOr/fIooTSwViFijyxwIW9EU=
+github.com/MicahParks/jwkset v0.11.0 h1:yc0zG+jCvZpWgFDFmvs8/8jqqVBG9oyIbmBtmjOhoyQ=
+github.com/MicahParks/jwkset v0.11.0/go.mod h1:U2oRhRaLgDCLjtpGL2GseNKGmZtLs/3O7p+OZaL5vo0=
 github.com/andrewheberle/simplecommand v0.3.0 h1:pjTQae9YwajvSEFjdaaczAd/7i/LSic6yuxUQENYTlU=
 github.com/andrewheberle/simplecommand v0.3.0/go.mod h1:D9L/jnIotmn3rxyAYIKAAd9rSA+QEHsbfU1UUAo1Upg=
 github.com/andrewheberle/simpleviper v1.1.1 h1:9cgJDjcQZoQD1OrgjdMgWP4oFVlFGaHXzxVOsJz0abE=
