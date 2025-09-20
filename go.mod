@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.4
 
 require (
-	github.com/MicahParks/jwkset v0.6.0
+	github.com/MicahParks/jwkset v0.11.0
 	github.com/andrewheberle/simplecommand v0.3.0
 	github.com/bep/simplecobra v0.6.0
 	github.com/go-co-op/gocron/v2 v2.16.2
