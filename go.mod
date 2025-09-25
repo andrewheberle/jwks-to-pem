@@ -9,7 +9,7 @@ require (
 	github.com/andrewheberle/simplecommand v0.3.0
 	github.com/bep/simplecobra v0.6.0
 	github.com/go-co-op/gocron/v2 v2.16.2
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 )
 
 require (
