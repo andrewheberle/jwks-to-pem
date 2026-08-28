@@ -5,7 +5,7 @@ COPY . /build
 RUN cd /build && \
     go build ./cmd/jwks-to-pem
 
-FROM gcr.io/distroless/base-debian12:nonroot@sha256:0a0dc2036b7c56d1a9b6b3eed67a974b6d5410187b88cbd6f1ef305697210ee2
+FROM gcr.io/distroless/base-debian12:nonroot@sha256:7f0c72cd138b442ae0deeb69c08b1acf5525439ba251a49ad93c320a061567e5
 
 COPY --from=builder /build/jwks-to-pem /app/jwks-to-pem
 
